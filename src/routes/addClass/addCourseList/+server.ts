@@ -15,4 +15,4 @@ export async function POST({request}) {
     return json(newCourse)
 }
 
-// test commit
+// test commit 2
