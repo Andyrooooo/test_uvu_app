@@ -115,170 +115,272 @@
 			filterSelected = "w-0"
 		}
 	}
-
-	// if the filterModal store is true it will slide open the filter modal
-	$: if ($filteredModal) {
-		filterSelected = "w-full"
-	} else if (!$filteredModal) {
-		filterSelected = "w-0"
-	}
-
-	// checks if the filter button is selected on mobile so it will open the modal on large as well and vice versa
-	// function openFilterModalS() {
-	// 	if (!$filteredModal) {
-	// 		filteredModal.set(true)
-	// 		filteredModalS.set(true)
-	// 		closeFilterSelectors.set(true)
-	// 	} else if ($filteredModal) {
-	// 		filteredModal.set(false)
-	// 		filteredModalS.set(false)
-	// 		closeFilterSelectors.set(false)
-	// 	}
-	// }
+	//   end CSV file handling
 
 
 
-	// sleep, exportScreenshot, initiateScreenshot, and addHeaderBack are used to take a screenshot of the schedule and download it as a jpg
-	function sleep(ms) {
-    	return new Promise(resolve => setTimeout(resolve, ms));
-	}
-	async function exportScreenshot() {
-		hiddenHeader = "hidden"
-		await sleep(50)
-		initiateScreenshot()
-	}
-	async function initiateScreenshot() {
-		const canvas = await html2canvas(document.body);
-		const imgData = canvas.toDataURL("image/jpeg");
-		const link = document.createElement('a');
-		link.download = 'schedule.jpg';
-		link.href = imgData;
-		link.click();
-		await sleep(50)
-		addHeaderBack()
-	}
-	function addHeaderBack() {
-		hiddenHeader = ""
-	}
+
+
+	// this will take the user confirmed courses and add them to a courses array, to add them to the calendar
+	function confirmImportedCourses(event: any){
 	
-	// This also closes the edit modal
-	function closeEditModal() {
-		editClassModal = false
-		editSelected = "w-0"
-		// editSelectedS = "text-primary"
+		event.preventDefault();
+
+		//due to the way the calendar works, we need to map the days to specific dates
+		const dayToDateMap = {
+  'Monday': '2024-07-01 T',
+  'Tuesday': '2024-07-02 T',
+  'Wednesday': '2024-07-03 T',
+  'Thursday': '2024-07-04 T',
+  'Friday': '2024-07-05 T'
+};
+
+function mapMeetingDays(days) {
+  let newMap = days.map(day => dayToDateMap[day]);
+  console.log('new map:', newMap);
+  return newMap;
+}
+
+
+
+    const form = event.target;
+    csvData.forEach((row, index) => {
+
+
+      if (row.CRN && row['Meeting Pattern'] !== 'Does Not Meet') {
+		// since our calendar doesn't allow repeating events, we need to map the days to specific dates
+		let calendarFriendlyDays = mapMeetingDays(row.meetingDays);
+		calendarFriendlyDays.forEach((day: any) => {
+        const course = {
+        //   title: form[`name-${index}`].value + form[`crn-${index}`].value,
+		title:	{html: form[`name-${index}`].value + "<br> CRN: " + form[`crn-${index}`].value + "<br> Instructor: " + form[`instructor-${index}`].value + "<br> Building and Room: " + form[`building-room-${index}`].value},
+          crn: form[`crn-${index}`].value,
+          instructor: form[`instructor-${index}`].value,
+          buildingRoom: form[`building-room-${index}`].value,
+
+			meetingDays: mapMeetingDays(row.meetingDays),
+		  start: day + form[`start-time-${index}`].value,
+		  end: day + form[`end-time-${index}`].value,
+		  backgroundColor: `#${form[`crn-${index}`].value}e`
+        };
+        courses.push(course);
+		events.update((value: any) => {
+			return [...value, course];
+		});
+	})
+		// console.log('here is the pushed courses,', courses);
+
+
+      }
+
+
+
+    });
+
+    // console.log('here is the pushed courses,', courses);
+	isUploadModalActive = !isUploadModalActive;
 	}
 
-	// allows you to print the schedule and hides the filter modal
-	async function printScreen() {
-		// hides the filter modal
-		filteredModalPrint.set(true)
-		await sleep(50)
-		// we then open the print dialog
-		window.print()
+  
 
-		// then after a few seconds we put the modal back
-		await sleep(50)
-		putModalBack()
+	function handleMeetingChange(event: Event, row: any) {
+		const input = event.target as HTMLInputElement;
+        row.meetingTime = input.checked ? 'Does Not Meet' : '';
+		// console.log('meeting time:', row.meetingTime);
 	}
 
-	function putModalBack() {
-		filteredModalPrint.set(false)
-	}
+
+    // afterUpdate(() => {
+    //     events.subscribe(value => {
+    //         value.forEach((event) => {
+	// 			console.log('event:', event);
+    //         });
+    //         console.log('total events store', value);
+    // });
+    // });
 </script>
 
-<!-- <div class="fixed bottom-0 z-0 h-full w-full flex justify-center items-center">
-	<img src="uvu_logo2.png" alt="" class="w-[200px] h-[200px] opacity-5">
-</div> -->
+<main class="h-full w-full">
+	<!-- main functionality buttons -->
+	 <div class="w-full flex justify-between bg-gray-100 h-[44px]">
 
-<!-- <div class="fixed z-30 w-full h-full flex justify-center items-center"> -->
-	<Message />
-<!-- </div> -->
-
-<!-- <div class="fixed z-30 w-full h-full flex justify-center items-center"> -->
-	<DeleteProgressModal />
-<!-- </div> -->
-
-
-<div class="">
-	<ProgressModal on:closeCSV={toggleImportModal}/>
+		<div class="flex flex-wrap flex-col mx-3 items-center justify-center">
+<p class="uppercase text-[18px]">Title:</p>
+<input class="input !bg-white placeholder-[#757677] !rounded-lg"  type="text" name="" id="" placeholder="Default Schedule Title">
 </div>
 
-<div class="bg-gray-50 static text-black ">
-	{#if addClassModal}
-		<div class="z-20 absolute h-screen w-full">
-			<AddClass on:closeModal={toggleModal}/>
-		</div>
-	{/if}
+<button
+type="button"
+class="btn bg-gradient-to-br variant-gradient-primary-secondary rounded-md text-sm mx-2 font-primary uppercase"
+on:click={handleUploadModal}>Add Timeblock</button
+>
+</div>
 
-	{#if importCSVModal}
-		<div class="z-20 absolute h-screen w-full">
-			<ImportCSV on:closeCSVModal={toggleImportModal} />
-		</div>
-	{/if}
+<body class="flex flex-wrap w-full h-full flex-row">
+	 <!-- sidebar -->
+	<div id="sidebar" class="w-auto h-auto border border-[#DCDCDD] border-y-2">
 
-	{#if editClassModal}
-		<div class="z-20 absolute h-screen w-full">
-			<Edit on:closeEditModal={closeEditModal}/>
-		</div>
-	{/if}
+	<div id="import" class="border m-4 p-2 w-[269px] rounded-lg">
+<p class="text-[15px] text-uvu-green">Current file:</p>
+<p>{fileName}</p>
+<button
+			type="button"
+			class="btn bg-[#DDDDDD] uppercase rounded-2xl text-sm font-primary w-full"
+			on:click={handleUploadModal}>Import New .CSV</button
+		>
+	</div>	
 
-	<div class="bg-white">
-		<div class="flex items-center justify-between gap-4 bg-white p-4 no-print {hiddenHeader}">
-			<div class="flex gap-8 items-center ">
-				<img src="uvu_logo2.png" alt="" class="">
-				<h1 class="text-lg lg:text-xl text-primary text-center hidden md:block font-raj transition-all duration-300">Academic Scheduling Aid</h1>
-			</div>
-			
-			<div class="">
-				<!-- <div class=""> -->
-				<div class="flex justify-end gap-4 items-center">
-					<!-- <div class="">
-						<button class="fa-solid fa-flask text-white text-2xl pl-2 hover:translate-y-[-4px] transition-all duration-200" on:click={test}></button>
-						<p class="text-center text-white">Test</p>
-					</div> -->
+	<div class="flex flex-wrap flex-col">
+		<p>Select schedule to view</p>
+		<p>reset filters</p>
+		<select name="" id="">Professors  <option value="">Professors</option></select>
+		<select name="" id="">Rooms  <option value="">Rooms</option></select>
+		<select name="" id="">Courses  <option value="">Courses</option></select>
+	</div>
 
-					<!-- print button -->
-					<div class="">
-						<button on:mouseover={() => hoverPrint = true} on:mouseleave={() => hoverPrint = false} class="px-6 py-1 rounded-full {hoverPrint ? "bg-primary" : "bg-third"} shadow-sm" 
-							on:click={printScreen} >
-							<div class="{hoverPrint ? "text-white" : "text-primary"} flex items-center font-medium font-raj uppercase text-md md:text-sm transition-all duration-300" >
-								<i class="fa-solid fa-print py-0.5 md:pr-2 md:py-0"></i>
-								<p class="hidden md:block">Print Schedule</p>
-							</div>
-						</button>
-					</div>
-					
-					<!-- export button -->
-					<div class="">
-						<button on:mouseover={() => hoverExport = true} on:mouseleave={() => hoverExport = false} class="px-6 py-1 {hoverExport ? "bg-primary" : "bg-third"} rounded-full shadow-sm" on:click={exportScreenshot}>
-							<div class="{hoverExport ? "text-white" : "text-primary"} flex items-center font-medium font-raj uppercase text-md md:text-sm transition-all duration-300">
-								<i class="fa-solid fa-file-export text-md py-0.5 md:pr-2 md:py-0"></i>
-								<p class="hidden md:block">Export Schedule</p>
-							</div>
-						</button>
-						<!-- <img src="export.svg" alt="export icon" class="w-10 h-10"> -->
-					</div>
-				</div>
-			</div>
-			
-		</div>
+	<div class="flex flex-wrap flex-col">
+		<button
+		type="button"
+		class="btn bg-gradient-to-br variant-gradient-primary-secondary uppercase rounded-md text-sm mx-2 font-primary"
+		on:click={handleUploadModal}>Add Schedules</button
+	>
+	<button
+		type="button"
+		class="btn bg-gradient-to-br variant-gradient-primary-secondary uppercase rounded-md text-sm mx-2 font-primary mr-3"
+		on:click={handleUploadModal}>Edit Schedules</button
+	>
+	<button
+	type="button"
+	class="btn bg-gradient-to-br variant-gradient-primary-secondary uppercase rounded-md text-sm mx-2 font-primary mr-3"
+	on:click={handleUploadCustomSuhedules}>Add Custom Schedules</button
+	
+>
 
-		<div class="py-2 w-full border-t border-b bg-gray-100 flex gap-4 justify-end pr-4 no-print shadow-sm {hiddenHeader}"> <!-- start -->
-			<NameSchedule />
-			<!-- filter button  -->
-			<div class="">
-				<button class="px-6 py-1 bg-primary hover:bg-primaryDark rounded-full transition-all duration-300 shadow-sm" on:click={openFilterModal}>
-					<div class="text-white flex items-center font-medium font-raj uppercase text-md md:text-sm transition-all duration-300" >
-						<i class="fa-solid fa-filter py-0.5 md:pr-2 md:py-0"></i>
-						<p class="hidden md:block">Filter</p>
-					</div>
+	</div>
+
+	</div>
+	<!-- end sidebar -->
+	<!-- calendar view -->
+	 <div class="grow">
+	<CalendarView />
+</div>
+</body>
+
+	<!-- modals -->
+
+	<!-- upload modal -->
+	{#if isUploadModalActive}
+
+		<div
+			class="bg-black bg-opacity-50 w-full h-fit fixed top-0 left-0 min-h-full  flex justify-center"
+		>
+	
+		<div class="relative">
+			<!-- this is the submit button that I couldn't quite figure out where the right place to put it -->
+			{#if csvData.length > 0}
+			<!-- svelte-ignore empty-block -->
+			{#await loadingPromise}
+			{:then}
+			<!-- this is the button that shows up when a user confirms their details, it is away from everything else for stylistic purposes -->
+			<button type="submit" form="confirmedClasses" class="confirm-schedule btn variant-filled rounded-xl p-2 text-lg">Confirm Schedule</button>
+			{/await}
+			{/if}
+			<!-- end submit block, start rest of content -->
+			<div class="flex flex-wrap bg-white m-10 p-10 rounded-xl w-fit md:min-w-[620px] max-w-[620px] h-fit max-h-[600px] overflow-auto shadow-xl custom-scrollbar upload-modal">
+				<button class="absolute top-8 right-[4.5%]  font-bold h-[30px] w-[30px] bg-red-500 p-2 rounded-full flex flex-col justify-center items-center shadow-2xl" on:click={handleUploadModal}><img src="/xmark-solid.svg" alt="close div"></button>
+				{#if csvData.length < 1}
+				<p class="w-full text-2xl text-uvu-green font-bold text-center m-5">Upload a Schedule</p>
+				<form class="w-full" on:submit|preventDefault={parseCSV}>
+					<button type="button" class=" w-full flex flex-wrap justify-center items-center">
+					<label for="file-upload" class="custom-file-upload flex flex-col justify-center items-center">
+						<img src="/arrow-up-solid.svg" alt="upload arrow" class="h-[80px] w-[80px] p-2 bg-uvu-green rounded-full cursor-pointer underline mb-6 hover:bg-[#00834d]">
+						{#if fileName === "No file chosen"}
+					<p>{fileName}</p>
+					{:else}
+					<p>Uploaded file: {fileName}</p>
+					{/if}
+					</label>
 				</button>
+					<input class="my-3 input text-black max-w-[620px] rounded-none bg-white border-2 !border-black" type="file" accept=".csv" name="fileUpload" id="file-upload" on:change={handleFileChange}/>
+					<div class=" flex justify-center m-2">
+					<button class="btn bg-gradient-to-br variant-gradient-primary-secondary" type="submit"
+						>Upload</button>
+					</div>
+				</form>
+				{/if}
+				<!-- this is temporarily where the uploaded data is going -->
+				{#if csvData.length > 0}
+				{#await loadingPromise}
+				<div class="w-full h-full bg-uvu-green rounded-lg flex flex-col justify-center items-center p-4">
+				<h2 class="text-white text-2xl font-bold my-5">Loading...</h2>
+				<ProgressRadial class='mb-5'/>
+			</div>
+				{:then}
+	
+			
+				 <p class="w-full text-2xl text-uvu-green font-bold text-center mb-2">Confirm Imported Data</p>
+				<form id="confirmedClasses" class="min-w-[400px] w-full" on:submit|preventDefault={confirmImportedCourses}>
+					{#each csvData as row, index}
+						{#if row.CRN}
+							<div id="course-{index}" class="flex flex-wrap flex-col border border-[#275D38] mb-2 p-2 rounded-lg">
+								<label for="name-{index}"><b>Course Catalog Name:</b></label>
+								<input class="editable-input" type="text" id="name-{index}" name="name-{index}" required value={row.Course} />
+								<label for="crn-{index}"><b>CRN:</b></label>
+								<input class="editable-input" type="text" id="crn-{index}" name="crn-{index}" required value={row.CRN} />
+								<!-- <label for="meeting-time-{index}"><b>Meeting Time:</b></label>
+								<input class="editable-input" type="text" id="meeting-time-{index}" name="meeting-time-{index}" value={row['Meeting Pattern']} /> -->
 
-				<div class="flex justify-center {filterSelected} transition-all duration-300 translate-y-[6px]">
-					<div class="basis-6/12  bg-primary h-[2px] rounded-full"></div>
-				</div>
-				
-				<!-- <img src="upload.svg" alt="upload icon" class="w-10 h-10">  -->
+								<!-- meeting day logic -->
+								<fieldset>
+									<legend class="font-bold">Meeting Days:</legend>
+									{#each ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Online'] as day}
+									<label>
+									  <input type="checkbox" name="days[]" value={day}   checked={row.meetingDays.includes(day)}> 
+									  {day}
+									</label>
+								  {/each}
+									</fieldset>
+								  <!-- end meeting day logic -->
+
+								  <!-- meeting time logic -->
+								<label class="font-bold" for="meeting-time-{index}">Meeting Time:</label>
+								{#if row.meetingTime !== 'Does Not Meet'}
+								<label class="w-full">
+									<input type="checkbox" name="days[]" value='Does Not Meet' on:change={(event) => handleMeetingChange(event, row)}/>
+									Does Not Meet
+								</label>
+								<div class="flex flex-wrap">
+									<div class="flex flex-col mr-2">
+										<label for="start-time-{index}"><b>Start Time:</b></label>
+										<input class="editable-input" type="time" id="start-time-{index}" name="start-time-{index}"  value="{row.meetingTime[0]}"/>
+									</div>
+									<div class="flex flex-col">
+										<label for="end-time-{index}"><b>End Time:</b></label>
+										<input class="editable-input" type="time" id="end-time-{index}" name="end-time-{index}" value="{row.meetingTime[1]}" />
+									</div>
+								</div>
+								{:else}
+								<label class="w-full">
+									<input type="checkbox" name="does-not-meet" value='Does Not Meet' on:change={(event) => handleMeetingChange(event, row)} checked/>
+									Does Not Meet
+								</label>
+								{/if}
+								<!-- end meeting time logic -->
+
+
+								<label class="font-bold" for="instructor-{index}">Instructor(s):</label>
+								<textarea class="editable-input" rows="2" id="instructor-{index}" name="instructor-{index}">{row.Instructor}</textarea>
+								<label class="font-bold" for="building-room-{index}">Building and Room:</label>
+								<input class="editable-input" type="text" id="building-room-{index}" name="building-room-{index}" value={row['Building and Room']} />
+							</div>
+
+						{/if}
+					{/each}
+						</form>
+				{/await}
+				{/if}
+			
+			
 			</div>
 
 			<!-- Import CSV button -->
