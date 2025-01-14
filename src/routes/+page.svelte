@@ -12,6 +12,7 @@
 	import Message from './modals/modal.svelte'
 	import DeleteProgressModal from './modals/deleteprogressModal.svelte'
 	import html2canvas from 'html2canvas'
+	import NameSchedule from './nameSchedule/NameSchedule.svelte'
 
 	console.log('this will only appear on the stale branch')
 
@@ -235,7 +236,7 @@
 						<button class="fa-solid fa-flask text-white text-2xl pl-2 hover:translate-y-[-4px] transition-all duration-200" on:click={test}></button>
 						<p class="text-center text-white">Test</p>
 					</div> -->
-					
+
 					<!-- print button -->
 					<div class="">
 						<button on:mouseover={() => hoverPrint = true} on:mouseleave={() => hoverPrint = false} class="px-6 py-1 rounded-full {hoverPrint ? "bg-primary" : "bg-third"} shadow-sm" 
@@ -263,7 +264,7 @@
 		</div>
 
 		<div class="py-2 w-full border-t border-b bg-gray-100 flex gap-4 justify-end pr-4 no-print shadow-sm {hiddenHeader}"> <!-- start -->
-
+			<NameSchedule />
 			<!-- filter button  -->
 			<div class="">
 				<button class="px-6 py-1 bg-primary hover:bg-primaryDark rounded-full transition-all duration-300 shadow-sm" on:click={openFilterModal}>
