@@ -1,118 +1,125 @@
 <script lang="ts">
-	import {dataStore, yearAndSeason, courses, rooms} from './mongodbData.js'
-	import { file } from './modals/messageModal.js'
-	// gets the data objects from the database and reassigns them to listData
-	export let data: any
-	import Calendar from './calendar/+page.svelte'
-	import AddClass from './addClass/+page.svelte'
-	import ImportCSV from './importCSV/+page.svelte'
-	import Edit from './edit/+page.svelte'
-	import ProgressModal from './modals/progressModal.svelte'
-	import {filteredModal, filteredModalS, closeFilterSelectors, filteredModalPrint} from './modals/messageModal.js'
-	import Message from './modals/modal.svelte'
-	import DeleteProgressModal from './modals/deleteprogressModal.svelte'
-	import html2canvas from 'html2canvas'
-	import NameSchedule from './nameSchedule/NameSchedule.svelte'
+// will branch tasks. if you see this in prod I'm sorry
+// Styling Sidebar
+//Styling import .csv
+//Finalize import .csv functionality
 
-	console.log('this will only appear on the stale branch')
+// comment so I can push something
+	// imports
+	import CalendarView from '$lib/components/CalendarView.svelte';
+	import { onMount, afterUpdate } from 'svelte';
+	import { events } from '$lib/stores/events';
+	import Papa from 'papaparse';
+	import { ProgressRadial } from '@skeletonlabs/skeleton';
+	export const courses: any = [];
+	import { scheduleTitle } from '$lib/stores/scheduleTitle';
+	import { writable } from 'svelte/store';
+	const scheduleTitleStore = writable<string>($scheduleTitle);
 
-	let addClassModal = false
-	let importCSVModal = false
-	let editClassModal = false
+	// modal setters
+	let isUploadModalActive = false;
+	function handleUploadModal() {
+		isUploadModalActive = !isUploadModalActive;
+	}
+	function handleUploadCustomSuhedules() {
+    isUploadModalActive = !isUploadModalActive;
+  }
 
-	let filterSelected = "w-0"
-	// let filterSelected = "w-0"
-	let importSelected = "w-0"
-	// let importSelectedS = "text-white"
-	let addSelected = "w-0"
-	// let addSelectedS = "text-white"
-	let editSelected = "w-0"
-	// let editSelectedS = "text-white"
-	let hiddenHeader = ""
-	let hoverPrint = false
-	let hoverExport = false
 
-	// $: console.log(data?.body?.theYearAndSeason)
 
-	// if there is any changes to the data in our database it will update the file, yearAndSeason, courses, and rooms stores
-    $: if (data) {
-        dataStore.set(data?.body?.events);
-		if (data?.body?.name === null) {
-			file.set({fileName: 'No File'})
-		} else {
-			file.set(data?.body?.name)
-		}
-		if (data?.body?.theYearAndSeason === null) {
-			yearAndSeason.set({year: 'default', season: 'default'})
-		} else {
-			yearAndSeason.set(data?.body?.theYearAndSeason)
-		}
-		courses.set(data?.body?.courses)
-		rooms.set(data?.body?.roomsList)
+
+	// temp events store for testing DELETE LATER
+	let tempEvents = [];
+
+	// CSV file handling
+	let csvData: any[] = [];
+	let file: any;
+	let loadingPromise: Promise<number>;
+		let fileName = "No file chosen";
+
+	// this function handles the file change event, so that parsing can be done
+  function handleFileChange(event: any) {
+    file = event.target.files[0];
+    if (file) {
+      fileName = file.name;
+    } else {
+      fileName = "No file chosen";
+    }
+  }
+
+
+	// this takes the uploaded file and parses it into a usable format
+	function parseCSV() {
+		if (file) {
+			const reader = new FileReader();
+			reader.onload = () => {
+				// this is the data that was uploaded
+				let uploadedData = reader.result as string;
+				// CourseLeaf has two lines of metadata at the beginning of the file, so we need to remove them
+
+				//In order to remove the first two lines, we need to split the string into lines, remove the first two lines, and then join the remaining lines back into a string.:
+				const lines = uploadedData.split('\n'); // Split the string into lines
+
+				// Remove the first two lines
+				const removeHeaders = lines.slice(2);
+
+				// Join the remaining lines back into a string
+				const uploadedDataHeadersRemoved = removeHeaders.join('\n');
+
+				// csvData is the data that we will be using
+				csvData = Papa.parse(uploadedDataHeadersRemoved, { header: true }).data;
+
+				
+
+				// a promise to simulate loading time
+				loadingPromise = new Promise((resolve) => {
+                    setTimeout(() => {
+                        resolve(1);
+                    }, 2000);
+                });
+
+				const dayMapping = {
+    m: 'Monday',
+    t: 'Tuesday',
+    w: 'Wednesday',
+    r: 'Thursday',
+    f: 'Friday'
+};
+
+function convertTo24Hour(time: any) {
+    const [timePart, modifier] = time.split(/(am|pm)/i);
+    let [hours, minutes] = timePart.split(':').map(Number);
+
+    if (modifier.toLowerCase() === 'pm' && hours < 12) {
+      hours += 12;
+    }
+    if (modifier.toLowerCase() === 'am' && hours === 12) {
+      hours = 0;
     }
 
-	// This opens and closes the "add schedules" modal
-	function toggleModal() {
-		addClassModal = !addClassModal
-		// checks if add button is selected and highlights the text to secondary color
-		if (addClassModal) {
-			addSelected = "w-full"
-			filteredModal.set(false)
-			filteredModalS.set(false)
-			closeFilterSelectors.set(false)
-			filterSelected = "w-0"
-			// addSelectedS = "text-secondary md:text-primary"
-		} else if (!addClassModal) {
-			addSelected = "w-0"
-			// addSelectedS = "text-primary"
-		}
-	}
+    return `${String(hours).padStart(2, '0')}:${String(minutes || 0).padStart(2, '0')}`;
+  }
 
-	// This opens and closes the "import csv" modal
-	function toggleImportModal() {
-		importCSVModal = !importCSVModal
-		// checks if import button is selected and highlights the text to secondary color
-		if (importCSVModal) {
-			importSelected = "w-full"
-			filteredModal.set(false)
-			filteredModalS.set(false)
-			closeFilterSelectors.set(false)
-			filterSelected = "w-0"
-			// importSelectedS = "text-secondary md:text-primary"
-		} else if (!importCSVModal) {
-			importSelected = "w-0"
-			// importSelectedS = "text-primary"
-		}
-	}
+				
+				csvData.forEach((row) => {
+					if (row.CRN && row['Meeting Pattern'] !== 'Does Not Meet') {
+					// console.log('Meeting Pattern:', row['Meeting Pattern']);
 
-	// This opens and closes the "edit schedules" modal
-	function toggleEditModal() {
-		editClassModal = !editClassModal
-		if (editClassModal) {
-			editSelected = "w-full"
-			filteredModal.set(false)
-			filteredModalS.set(false)
-			closeFilterSelectors.set(false)
-			filterSelected = "w-0"
-			// editSelectedS = "text-secondary md:text-primary"
-		} else if (!editClassModal) {
-			editSelected = "w-0"
-			// editSelectedS = "text-primary"
-		}
-	}
-
-	// This opens and closes the "filter" modal
-	function openFilterModal() {
-		if (!$filteredModal) {
-			filteredModal.set(true)
-			filteredModalS.set(true)
-			closeFilterSelectors.set(true)
-			filterSelected = "w-full"
-		} else if ($filteredModal) {
-			filteredModal.set(false)
-			filteredModalS.set(false)
-			closeFilterSelectors.set(false)
-			filterSelected = "w-0"
+					const [meetingDays, meetingTime] = row['Meeting Pattern'].split(' ', 2);
+					row.meetingDays = meetingDays.split('').map((day: string) => dayMapping[day.toLowerCase() as keyof typeof dayMapping]);
+					row.meetingTime = meetingTime.split('-').map(convertTo24Hour);
+					// console.log('Rows with this specfic pattern:', row.meetingDays, row.meetingTime);
+					// console.log('meeting times:', row.meetingTime);
+					}
+				
+					else if (row.CRN && row['Meeting Pattern'] === 'Does Not Meet') {
+						row.meetingDays = 'Online';
+						row.meetingTime = 'Does Not Meet';
+					}
+				});
+				// console.log('raw csv data:', csvData);
+			};
+			reader.readAsText(file);
 		}
 	}
 	//   end CSV file handling
@@ -198,16 +205,31 @@ function mapMeetingDays(days) {
     //         console.log('total events store', value);
     // });
     // });
+
+	
+	//the default title originates from the file upload
+	const defaultScheduleTitle = $scheduleTitle;
+	
+
+	// this is the function that will set the title of the schedule
+	function setScheduleTitle() {
+		const title = document.getElementById('schedule-title') as HTMLInputElement;
+		scheduleTitle.set(title.value);
+		
+		//console.log($scheduleTitle)
+	}
 </script>
 
 <main class="h-full w-full">
 	<!-- main functionality buttons -->
-	 <div class="w-full flex justify-between bg-gray-100 h-[44px]">
 
-		<div class="flex flex-wrap flex-col mx-3 items-center justify-center">
-<p class="uppercase text-[18px]">Title:</p>
-<input class="input !bg-white placeholder-[#757677] !rounded-lg"  type="text" name="" id="" placeholder="Default Schedule Title">
-</div>
+	<!-- Schedule Custom Title Input -->
+	<div class="w-full flex justify-between bg-gray-100 h-[44px]">
+
+			<div class="flex flex-wrap flex-col mx-3 items-center justify-center">
+				<p class="uppercase text-[18px]">Title:</p>
+				<input id="schedule-title" class="input !bg-white placeholder-[#757677] !rounded-lg"  type="text" name="" placeholder={defaultScheduleTitle} on:input={setScheduleTitle} />
+	</div>
 
 <button
 type="button"
@@ -230,41 +252,6 @@ on:click={handleUploadModal}>Add Timeblock</button
 		>
 	</div>	
 
-	<div class="bg-white">
-		<div class="flex items-center justify-between gap-4 bg-white p-4 no-print {hiddenHeader}">
-			<div class="flex gap-8 items-center ">
-				<img src="uvu_logo2.png" alt="" class="">
-				<h1 class="text-lg lg:text-xl text-primary text-center hidden md:block font-raj transition-all duration-300">Academic Scheduling Aid</h1>
-			</div>
-			
-			<div class="">
-				<!-- <div class=""> -->
-				<div class="flex justify-end gap-4 items-center">
-					<!-- <div class="">
-						<button class="fa-solid fa-flask text-white text-2xl pl-2 hover:translate-y-[-4px] transition-all duration-200" on:click={test}></button>
-						<p class="text-center text-white">Test</p>
-					</div> -->
-
-					<!-- print button -->
-					<div class="">
-						<button on:mouseover={() => hoverPrint = true} on:mouseleave={() => hoverPrint = false} class="px-6 py-1 rounded-full {hoverPrint ? "bg-primary" : "bg-third"} shadow-sm" 
-							on:click={printScreen} >
-							<div class="{hoverPrint ? "text-white" : "text-primary"} flex items-center font-medium font-raj uppercase text-md md:text-sm transition-all duration-300" >
-								<i class="fa-solid fa-print py-0.5 md:pr-2 md:py-0"></i>
-								<p class="hidden md:block">Print Schedule</p>
-							</div>
-						</button>
-					</div>
-					
-					<!-- export button -->
-					<div class="">
-						<button on:mouseover={() => hoverExport = true} on:mouseleave={() => hoverExport = false} class="px-6 py-1 {hoverExport ? "bg-primary" : "bg-third"} rounded-full shadow-sm" on:click={exportScreenshot}>
-							<div class="{hoverExport ? "text-white" : "text-primary"} flex items-center font-medium font-raj uppercase text-md md:text-sm transition-all duration-300">
-								<i class="fa-solid fa-file-export text-md py-0.5 md:pr-2 md:py-0"></i>
-								<p class="hidden md:block">Export Schedule</p>
-							</div>
-						</button>
-						<!-- <img src="export.svg" alt="export icon" class="w-10 h-10"> -->
 	<div class="flex flex-wrap flex-col">
 		<p>Select schedule to view</p>
 		<p>reset filters</p>
@@ -416,84 +403,142 @@ on:click={handleUploadModal}>Add Timeblock</button
 				{/if}
 			
 			
-			
+			</div>
 		</div>
-
-		<div class="py-2 w-full border-t border-b bg-gray-100 flex gap-4 justify-end pr-4 no-print shadow-sm {hiddenHeader}"> <!-- start -->
-			<NameSchedule />
-			<!-- filter button  -->
-			<div class="">
-				<button class="px-6 py-1 bg-primary hover:bg-primaryDark rounded-full transition-all duration-300 shadow-sm" on:click={openFilterModal}>
-					<div class="text-white flex items-center font-medium font-raj uppercase text-md md:text-sm transition-all duration-300" >
-						<i class="fa-solid fa-filter py-0.5 md:pr-2 md:py-0"></i>
-						<p class="hidden md:block">Filter</p>
-					</div>
-				</button>
-
-				<div class="flex justify-center {filterSelected} transition-all duration-300 translate-y-[6px]">
-					<div class="basis-6/12  bg-primary h-[2px] rounded-full"></div>
-				</div>
-				
-				<!-- <img src="upload.svg" alt="upload icon" class="w-10 h-10">  -->
-			</div>
-
-			<!-- Import CSV button -->
-			<div class="">
-				<button class="px-6 py-1 bg-primary hover:bg-primaryDark rounded-full shadow-sm transition-all duration-300" on:click={toggleImportModal}>
-					<div class="text-white flex items-center font-medium font-raj uppercase text-md md:text-sm transition-all duration-300">
-						<i class="fa-solid fa-file-import py-0.5 md:pr-2 md:py-0"></i>
-						<p class="hidden md:block">Import CSV</p>
-					</div>
-				</button>
-				
-				<div class="flex justify-center {importSelected} transition-all duration-300 translate-y-[6px]">
-					<div class="basis-6/12  bg-primary h-[2px] rounded-full"></div>
-				</div>
-				<!-- <img src="upload.svg" alt="upload icon" class="w-10 h-10"> --> 
-			</div>
-
-			<!-- add button  -->
-			<div>
-				<button class="px-6 py-1 bg-primary hover:bg-primaryDark rounded-full shadow-sm transition-all duration-300" on:click={toggleModal}>
-					<div class="text-white flex items-center font-medium font-raj uppercase text-md md:text-sm transition-all duration-300">
-						<i class="fa-solid fa-circle-plus py-0.5 md:pr-2 md:py-0"></i>
-						<p class="hidden md:block">Add Schedules</p>
-					</div>
-				</button>
-				<div class="flex justify-center {addSelected} transition-all duration-300  translate-y-[6px]">
-					<div class="basis-6/12  bg-primary h-[2px] rounded-full"></div>
-				</div>
-				<!-- <img src="add.svg" alt="Plus button called add" class="w-10 h-10">  -->
-			</div>
-
-			<!-- edit button  -->
-			<div class="">
-				<button class="px-6 py-1 bg-primary hover:bg-primaryDark rounded-full shadow-sm transition-all duration-300" on:click={toggleEditModal}>
-					<div class="text-white flex items-center font-medium font-raj uppercase text-md md:text-sm transition-all duration-300">
-						<i class="fa-solid fa-pen-to-square py-0.5 md:pr-2 md:py-0"></i>
-						<p class="hidden md:block">Edit Schedules</p>
-					</div>
-				</button>
-				<div class="flex justify-center {editSelected} transition-all duration-300 translate-y-[6px]">
-					<div class="basis-6/12  bg-primary h-[2px] rounded-full"></div>
-				</div>
-				
-			</div>
-
-		</div><!-- end -->
-		
-
-		<div class="">
-			<!-- listData from the database gets passed down as a prop to the scheduler -->
-			<Calendar />
 		</div>
-	</div>
-</div>
+	{/if}
 
-<style>
-	@media print {
-		.no-print {
-			display: none;
-		}
+<!-- Add Custom Schedule -->
+<!-- Modal (Opens on Click) -->
+{#if isUploadModalActive}
+  <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+    <div class="bg-white p-6 rounded-lg shadow-lg max-w-3xl w-full">
+      <div class="bg-green-700 text-white p-4 text-center text-xl font-bold rounded-t-lg">
+        ADD CUSTOM SCHEDULE
+      </div>
+      <div class="p-6">
+        <form class="grid grid-cols-2 gap-4">
+          <!-- Class Name -->
+          <div>
+            <label class="block text-gray-700 font-medium">Class Name</label>
+            <input
+              type="text"
+              placeholder="Type Class Name"
+              class="w-full border border-gray-300 rounded-md p-2 mt-1"
+            />
+          </div>
+
+          <!-- Professor Name -->
+          <div>
+            <label class="block text-gray-700 font-medium">Prof First Name</label>
+            <input
+              type="text"
+              placeholder="Type First Name"
+              class="w-full border border-gray-300 rounded-md p-2 mt-1"
+            />
+          </div>
+
+          <div>
+            <label class="block text-gray-700 font-medium">Prof Last Name</label>
+            <input
+              type="text"
+              placeholder="Type Last Name"
+              class="w-full border border-gray-300 rounded-md p-2 mt-1"
+            />
+          </div>
+
+          <!-- Select Days -->
+          <div class="col-span-2">
+            <label class="block text-gray-700 font-medium">Select Days:</label>
+            <div class="flex space-x-2 mt-1">
+              {#each ["MON", "TUES", "WED", "THUR", "FRI", "SAT"] as day}
+                <button
+                  type="button"
+                  class="px-4 py-2 rounded-md border bg-gray-200 text-gray-700"
+                >
+                  {day}
+                </button>
+              {/each}
+            </div>
+          </div>
+
+          <!-- Start Time -->
+          <div>
+            <label class="block text-gray-700 font-medium">Select Start Time</label>
+            <input
+              type="time"
+              class="border border-gray-300 rounded-md p-2 mt-1 w-full"
+            />
+          </div>
+
+          <!-- Class Length -->
+          <div>
+            <label class="block text-gray-700 font-medium">Class Length</label>
+            <select class="w-full border border-gray-300 rounded-md p-2 mt-1">
+              <option value="">Select Class Length</option>
+              <option value="30">30 mins</option>
+              <option value="60">1 hour</option>
+            </select>
+          </div>
+
+          <!-- Buttons -->
+          <div class="col-span-2 flex justify-end space-x-4 mt-4">
+            <button
+              type="button"
+              class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md"
+              on:click={() => (isUploadModalActive = false)}
+            >
+              Cancel
+            </button>
+            <button type="submit" class="bg-green-700 text-white px-4 py-2 rounded-md">
+              Add Schedule
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+{/if}
+
+	
+</main>
+
+<style lang='postcss'>
+	/* .custom-scrollbar {
+	  scrollbar-color: red orange !important;
+	  scrollbar-width: thick !important;
+	} */
+
+	.confirm-schedule {
+	position: absolute !important;
+	top: 623px !important;
+	left: 34% !important;
+	background-color: #00834d !important;
+	font-weight: bold !important;
+	text-transform: uppercase !important;
+	color: white !important;
+	z-index: 1000 !important;
 	}
+
+	input[type="file"] {
+  display: none;
+}
+
+.editable-input {
+ @apply input border-none shadow-inner p-2 !border-black rounded-lg !bg-yellow-100;
+}
+
+.upload-modal {
+	overflow: scroll !important;
+	overflow-y:scroll;
+
+}
+
+.ec-day {
+  min-width: fit-content !important;
+  min-height: fit-content !important;
+}
+
+
+
 </style>
